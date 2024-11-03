@@ -42,8 +42,3 @@ This simple Node.js app uses the Zoho Sign API to create and submit documents fo
 
 - **createDocument(email, name)**: Sends the document and required data to Zoho's `/requests` endpoint.
 - **sendDocumentForSignature(requestId)**: Submits the document at `/requests/:requestId/submit`.
-
-## Notes
-
-- Ensure you have a valid Zoho OAuth token with required permissions.
-- Test API calls using tools like Postman before deployment to production.
