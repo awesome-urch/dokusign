@@ -81,10 +81,8 @@ async function createDocument(email, name) {
 // async function sendDocumentForSignature(requestId) {
 //     try {
 //         console.log(`${ZOHO_BASE_URL}/requests/${requestId}/submit`);
-//         // Make the API request without additional body data
 //         const response = await axios.post(
 //             `${ZOHO_BASE_URL}/requests/${requestId}/submit`,
-//             {},  // Empty body
 //             {
 //                 headers: {
 //                     Authorization: `Zoho-oauthtoken ${ZOHO_OAUTH_TOKEN}`
@@ -96,7 +94,7 @@ async function createDocument(email, name) {
 //         return response.data;
 //     } catch (error) {
 //         if (error.response) {
-//             console.error('Error sending document for signature:', error.response.data);
+//             console.error('Error2 sending document for signature:', error.response.data);
 //         } else {
 //             console.error('Error:', error.message);
 //         }
@@ -107,28 +105,75 @@ async function createDocument(email, name) {
 
 async function sendDocumentForSignature(requestId) {
     try {
-        console.log(`${ZOHO_BASE_URL}/requests/${requestId}/submit`);
-        const response = await axios.post(
-            `${ZOHO_BASE_URL}/requests/${requestId}/submit`,
-            {
-                headers: {
-                    Authorization: `Zoho-oauthtoken ${ZOHO_OAUTH_TOKEN}`
-                }
-            }
-        );
+        console.log('Using OAuth Token:', ZOHO_OAUTH_TOKEN);
 
-        console.log('Document submitted for signature:', response.data);
-        return response.data;
+        const formData = new FormData();
+
+        // JSON structure as a string for the `data` field
+        const requestData = JSON.stringify({
+            requests: {
+                request_name: 'NDA',
+                description: 'Details of document',
+                is_sequential: true,
+                actions: [
+                    {
+                        action_type: 'SIGN',
+                        recipient_email: 'michael.uche@insidesuccessnigeria.com',
+                        recipient_name: 'Uchechukwu',
+                        signing_order: 0,
+                        verify_recipient: false,
+                        private_notes: 'To be signed ASAP'
+                    }
+                ],
+                fields: [
+                    {
+                       "field_type_name": "Email",
+                        "field_category": "textfield",
+                        "field_label": "Email",
+                        "is_mandatory": true,
+                        "page_no": 0,
+                        "document_id": "2385687500987112",
+                        "field_name": "Email",
+                        "y_coord": 51,
+                        "action_id": "238568888765470",
+                        "abs_width": 16,
+                        "x_coord": 53,
+                        "abs_height": 2
+                    }
+                ],
+                expiration_days: 10,
+                email_reminders: true,
+                reminder_period: 0,
+                notes: 'Note for all recipients'
+            }
+        });
+
+        // Attach JSON string directly to `data`
+        //formData.append('data', requestData);
+
+        // Attach the file as per the documentation
+        //formData.append('file', fs.createReadStream(path.join(__dirname, 'assets/sample_document.docx')));
+
+        // Make the API request
+        const response = await axios.post( `${ZOHO_BASE_URL}/requests/${requestId}/submit`, formData, {
+            headers: {
+                Authorization: `Zoho-oauthtoken ${ZOHO_OAUTH_TOKEN}`,
+                ...formData.getHeaders()
+            }
+        });
+
+        console.log('Document created successfully:', response.data);
+
+        return response.data.requests.request_id;
     } catch (error) {
         if (error.response) {
-            console.error('Error2 sending document for signature:', error.response.data);
+            console.error('Error2 creating document:', error.response.data); // Log full error details
         } else {
-            console.error('Error:', error.message);
+            console.error('Error2 generic:', error.message);
         }
         throw error;
     }
 }
-
 
 
 // Render the signup form
@@ -141,6 +186,7 @@ app.post('/signup', upload.single('file'), async (req, res) => {
     const { name, email } = req.body;
     try {
         const requestId = await createDocument(email, name);
+        // const requestId = '427416000000034193';
         await sendDocumentForSignature(requestId);
         res.redirect('/success');
     } catch (error) {
