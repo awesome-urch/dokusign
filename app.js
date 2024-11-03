@@ -3,6 +3,8 @@ const axios = require('axios');
 const multer = require('multer');
 const path = require('path');
 require('dotenv').config();
+const fs = require('fs');
+const FormData = require('form-data');
 
 const app = express();
 const PORT = 5500;
@@ -14,16 +16,23 @@ app.use(express.static('assets'));
 
 const ZOHO_BASE_URL = 'https://sign.zoho.com/api/v1';
 const ZOHO_OAUTH_TOKEN = process.env.ZOHO_OAUTH_TOKEN;
+// const ZOHO_OAUTH_TOKEN = '1000.aa45f1b92dffea1f80652339537a2b71.1ff85d240cffb5b591743d4085b76b85';
 
 // Handle file upload with multer
 const upload = multer({ dest: 'uploads/' });
 
 async function createDocument(email, name) {
     try {
+        console.log('Using OAuth Token:', ZOHO_OAUTH_TOKEN);
+
         const formData = new FormData();
-        formData.append('data', JSON.stringify({
+
+        // JSON structure as a string for the `data` field
+        const requestData = JSON.stringify({
             requests: {
-                request_name: 'annotations',
+                request_name: 'NDA',
+                description: 'Details of document',
+                is_sequential: true,
                 actions: [
                     {
                         action_type: 'SIGN',
@@ -35,33 +44,72 @@ async function createDocument(email, name) {
                     }
                 ],
                 expiration_days: 10,
-                is_sequential: true,
                 email_reminders: true,
-                reminder_period: 0
-            }
-        }));
-        
-        formData.append('file', path.join(__dirname, 'assets/sample_document.docx'));
-
-        const response = await axios.post(`${ZOHO_BASE_URL}/requests`, formData, {
-            headers: {
-                Authorization: `Zoho-oauthtoken ${ZOHO_OAUTH_TOKEN}`,
-                'Content-Type': 'multipart/form-data'
+                reminder_period: 0,
+                notes: 'Note for all recipients'
             }
         });
 
+        // Attach JSON string directly to `data`
+        formData.append('data', requestData);
+
+        // Attach the file as per the documentation
+        formData.append('file', fs.createReadStream(path.join(__dirname, 'assets/sample_document.docx')));
+
+        // Make the API request
+        const response = await axios.post(`${ZOHO_BASE_URL}/requests`, formData, {
+            headers: {
+                Authorization: `Zoho-oauthtoken ${ZOHO_OAUTH_TOKEN}`,
+                ...formData.getHeaders()
+            }
+        });
+
+        console.log('Document created successfully:', response.data);
+
         return response.data.requests.request_id;
     } catch (error) {
-        console.error('Error creating document:', error);
+        if (error.response) {
+            console.error('Error creating document:', error.response.data); // Log full error details
+        } else {
+            console.error('Error generic:', error.message);
+        }
         throw error;
     }
 }
 
+
+// async function sendDocumentForSignature(requestId) {
+//     try {
+//         console.log(`${ZOHO_BASE_URL}/requests/${requestId}/submit`);
+//         // Make the API request without additional body data
+//         const response = await axios.post(
+//             `${ZOHO_BASE_URL}/requests/${requestId}/submit`,
+//             {},  // Empty body
+//             {
+//                 headers: {
+//                     Authorization: `Zoho-oauthtoken ${ZOHO_OAUTH_TOKEN}`
+//                 }
+//             }
+//         );
+
+//         console.log('Document submitted for signature:', response.data);
+//         return response.data;
+//     } catch (error) {
+//         if (error.response) {
+//             console.error('Error sending document for signature:', error.response.data);
+//         } else {
+//             console.error('Error:', error.message);
+//         }
+//         throw error;
+//     }
+// }
+
+
 async function sendDocumentForSignature(requestId) {
     try {
+        console.log(`${ZOHO_BASE_URL}/requests/${requestId}/submit`);
         const response = await axios.post(
             `${ZOHO_BASE_URL}/requests/${requestId}/submit`,
-            {},
             {
                 headers: {
                     Authorization: `Zoho-oauthtoken ${ZOHO_OAUTH_TOKEN}`
@@ -69,12 +117,19 @@ async function sendDocumentForSignature(requestId) {
             }
         );
 
+        console.log('Document submitted for signature:', response.data);
         return response.data;
     } catch (error) {
-        console.error('Error sending document for signature:', error);
+        if (error.response) {
+            console.error('Error2 sending document for signature:', error.response.data);
+        } else {
+            console.error('Error:', error.message);
+        }
         throw error;
     }
 }
+
+
 
 // Render the signup form
 app.get('/', (req, res) => {
